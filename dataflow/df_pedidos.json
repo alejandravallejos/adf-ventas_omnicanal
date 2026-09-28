@@ -1,0 +1,90 @@
+{
+	"name": "df_pedidos",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "pedidos_csv",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "pedidos_sql",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "split1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          pedido_id as string,",
+				"          fecha_pedido as string,",
+				"          hora_pedido as string,",
+				"          cliente_id as string,",
+				"          sucursal_id as string,",
+				"          canal as string,",
+				"          tipo_servicio as string,",
+				"          estado_pedido as string,",
+				"          promocion_id as string,",
+				"          subtotal as string,",
+				"          costo_delivery as string,",
+				"          descuento as string,",
+				"          impuesto as string,",
+				"          total_pedido as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source1",
+				"source1 derive(pedido_id = toString(trim(pedido_id)),",
+				"          cliente_id = toString(trim(cliente_id)),",
+				"          subtotal = coalesce(toDecimal(subtotal, 12, 2), toDecimal(0, 12, 2)),",
+				"          costo_delivery = coalesce(toDecimal(costo_delivery, 12, 2), toDecimal(0, 12, 2))) ~> derivedColumn1",
+				"derivedColumn1 split(!isNull(pedido_id) && !isNull(cliente_id)  && !isNull(promocion_id)&& !isNull(fecha_pedido) && toDecimal(total_pedido, 12, 2) >= 0,",
+				"     disjoint: false) ~> split1@(validos, rechazados)",
+				"split1@validos sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          pedido_id as string,",
+				"          cliente_id as string,",
+				"          restaurante_id as string,",
+				"          fecha_pedido as timestamp,",
+				"          monto_subtotal as decimal(12,2),",
+				"          costo_envio as decimal(12,2),",
+				"          monto_total as decimal(12,2),",
+				"          estado_pedido as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          pedido_id,",
+				"          cliente_id,",
+				"          fecha_pedido,",
+				"          monto_subtotal = subtotal,",
+				"          costo_envio = costo_delivery,",
+				"          monto_total = total_pedido,",
+				"          estado_pedido",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}
