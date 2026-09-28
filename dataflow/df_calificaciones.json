@@ -1,0 +1,80 @@
+{
+	"name": "df_calificaciones",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "calificaciones_csv",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "calificaciones_sql",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "split1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          calificacion_id as string,",
+				"          pedido_id as string,",
+				"          cliente_id as string,",
+				"          fecha_calificacion as string,",
+				"          puntuacion as string,",
+				"          comentario as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source1",
+				"source1 derive(calificacion_id = toString(trim(calificacion_id)),",
+				"          pedido_id = toString(trim(pedido_id)),",
+				"          cliente_id = toString(trim(cliente_id)),",
+				"          puntuacion = toDecimal(puntuacion, 3, 2),",
+				"          comentario = toString(trim(comentario))) ~> derivedColumn1",
+				"derivedColumn1 split(!isNull(calificacion_id) && !isNull(pedido_id) && !isNull(cliente_id) && !isNull(fecha_calificacion) && (toDecimal(puntuacion, 3, 2) >= 0.00 && toDecimal(puntuacion, 3, 2) <= 5.00),",
+				"     disjoint: false) ~> split1@(validos, rechazados)",
+				"split1@validos sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          calificacion_id as string,",
+				"          pedido_id as string,",
+				"          cliente_id as string,",
+				"          fecha_calificacion as string,",
+				"          comentario as string,",
+				"          puntuacion as decimal(3,2)",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          calificacion_id,",
+				"          pedido_id,",
+				"          cliente_id,",
+				"          fecha_calificacion,",
+				"          puntuacion,",
+				"          comentario",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}
